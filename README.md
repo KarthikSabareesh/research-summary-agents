@@ -167,9 +167,9 @@ The interface has 3 tabs:
 
 ---
 ## Future direction
-- Inlcude MCP connectors for ArXiv, Google Drive, Notion for more selective research
-- Scale up with cloud providers like AWS or Azure
-- Integrate Kubernetes
+- **Inlcude MCP** connectors for ArXiv, Google Drive, Notion for more selective research
+- **Scale up with cloud** providers like AWS or Azure
+- **Integrate Kubernetes**
 
 ---
 
