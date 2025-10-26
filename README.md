@@ -124,7 +124,7 @@ Frontend will open automatically at: `http://localhost:3000`
 Follow the "Running the Application" section above.
 
 ### 2. Access the Web Interface
-Open `http://localhost:3000` in your browser if ran locally or use Vercel deployment link.
+Open `http://localhost:3000` in your browser
 
 ### 3. Submit a Query
 - Enter your research question in the text area
