@@ -1,0 +1,78 @@
+.status-banner {
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  margin-top: 1rem;
+  font-size: 0.9rem;
+}
+
+.status-banner.loading {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.status-banner.online {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.status-banner.offline {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.status-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.status-indicator {
+  font-weight: 600;
+}
+
+.features-list {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.feature {
+  background: rgba(255, 255, 255, 0.5);
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.refresh-button {
+  background: transparent;
+  border: 1px solid currentColor;
+  color: inherit;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.refresh-button:hover {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.status-error {
+  margin-top: 0.5rem;
+  text-align: center;
+}
+
+@media (max-width: 768px) {
+  .status-content {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .features-list {
+    justify-content: center;
+  }
+}

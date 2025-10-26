@@ -1,0 +1,22 @@
+# Flask Backend Requirements
+# Core Flask
+flask==3.0.0
+flask-cors==4.0.0
+
+# Already included from main project (shared dependencies)
+# These are imported from the parent research-summary-agents.py
+# langchain
+# langchain-community
+# langchain-google-genai
+# langgraph
+# langchain-pinecone
+# pinecone-client
+# langchain-huggingface
+# sentence-transformers
+# tavily-python
+# beautifulsoup4
+# pydantic
+
+# Additional for API
+gunicorn==21.2.0  # Production WSGI server
+python-dotenv==1.0.0  # Environment variable management

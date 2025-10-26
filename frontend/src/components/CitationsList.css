@@ -1,0 +1,144 @@
+.citations-list {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.citations-header {
+  margin-bottom: 2rem;
+  text-align: center;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.citations-header h3 {
+  font-size: 1.75rem;
+  color: #1f2937;
+  margin-bottom: 0.5rem;
+}
+
+.citations-count {
+  color: #6b7280;
+  font-size: 1rem;
+}
+
+.citations-empty {
+  text-align: center;
+  padding: 3rem 2rem;
+  color: #6b7280;
+  background: #f9fafb;
+  border-radius: 8px;
+}
+
+.citations-items {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.citation-item {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 1.5rem;
+  transition: box-shadow 0.2s;
+}
+
+.citation-item:hover {
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.citation-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.citation-number {
+  background: linear-gradient(135deg, #ea580c 0%, #fb923c 100%);
+  color: white;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.citation-content {
+  background: white;
+  padding: 1rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+}
+
+.citation-content pre {
+  margin: 0;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: #374151;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.citation-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+}
+
+.citation-link {
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #ea580c 0%, #fb923c 100%);
+  color: white;
+  text-decoration: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: all 0.2s;
+  border: none;
+  cursor: pointer;
+}
+
+.citation-link:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 2px 8px rgba(234, 88, 12, 0.4);
+  opacity: 0.9;
+}
+
+.copy-button {
+  padding: 0.5rem 1rem;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  color: #374151;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.copy-button:hover {
+  background: #e5e7eb;
+}
+
+@media (max-width: 768px) {
+  .citation-item {
+    padding: 1rem;
+  }
+
+  .citation-actions {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .citation-link,
+  .copy-button {
+    width: 100%;
+    text-align: center;
+  }
+}
