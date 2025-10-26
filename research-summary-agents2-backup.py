@@ -1,9 +1,68 @@
+# %%
+"""
+Multi-Agent Research Assistant
+===============================
+Two-agent system demonstrating:
+- Research Agent: Queries web using Tavily search API
+- Summary Agent: Converts findings into executive summary
+- Guardrails AI: Safety controls and content validation
+- Hybrid RAG: BM25 (keyword) + Semantic search with DYNAMIC knowledge base building
+- Memory: Persistent conversation state
+- Tool calling: Web search and retrieval tools
+
+KEY FEATURES:
+-------------
+1. Self-Building Knowledge Base
+   Unlike traditional RAG systems with static documents, this system builds its
+   knowledge base dynamically from search results:
+     • User asks a question
+     • Research Agent searches via Tavily
+     • Search results automatically stored in Pinecone + BM25
+     • Future queries retrieve from both web AND past searches
+     • Knowledge base grows organically with use
+
+2. Hybrid Search (BM25 + Semantic)
+   Combines two complementary retrieval approaches:
+     • BM25: Keyword-based search (exact term matching)
+     • Semantic: Vector similarity search (meaning-based)
+     • Ensemble weights: 50% BM25 + 50% semantic (configurable)
+     • Better accuracy for both specific queries and conceptual searches
+
+3. Source Credibility Scoring (100-point scale)
+   Evaluates reliability of each source using multiple factors:
+     • Domain Reputation: Academic (.edu), government (.gov), tier-1 news (40 pts)
+     • Date Freshness: Recent sources scored higher (30 pts)
+     • Content Quality: Detects low-credibility indicators (30 pts)
+     • Automatic classification: High/Medium/Low quality
+     • Credibility metadata stored with each document
+
+4. Citation Management
+   Professional citation tracking and formatting:
+     • Multiple formats: APA, MLA, Chicago, Simple
+     • Automatic deduplication of duplicate URLs
+     • Credibility score displayed with each citation
+     • Source statistics: average quality, distribution analysis
+     • Executive summaries include full credibility analysis
+"""
+
 import os
 import re
 from io import StringIO
 from typing import Annotated, Literal, TypedDict
 from langchain_community.document_loaders import WebBaseLoader
 from bs4 import BeautifulSoup
+
+# -----------------------------
+# LangSmith: optional local defaults (envs are the source of truth)
+# -----------------------------
+# os.environ.setdefault("LANGSMITH_TRACING", "true")
+# os.environ.setdefault("LANGSMITH_PROJECT", "multi-agent-research")
+# LANGSMITH_API_KEY should be set in your shell
+
+# -----------------------------
+# Initialize Safety Controls - Custom Implementation
+# (No external API needed - works immediately)
+# -----------------------------
 import re
 
 GUARDRAILS_ENABLED = True
@@ -20,7 +79,7 @@ class CustomGuard:
         if re.search(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', text):
             pii_found.append("EMAIL")
 
-        # Phone number
+        # Phone number (various formats)
         if re.search(r'\b\d{3}[-.]?\d{3}[-.]?\d{4}\b', text):
             pii_found.append("PHONE")
 
@@ -28,7 +87,7 @@ class CustomGuard:
         if re.search(r'\b\d{3}-\d{2}-\d{4}\b', text):
             pii_found.append("SSN")
 
-        # Credit card
+        # Credit card (basic pattern)
         if re.search(r'\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b', text):
             pii_found.append("CREDIT_CARD")
 
@@ -42,6 +101,7 @@ class CustomGuard:
     def detect_jailbreak(text: str) -> tuple[bool, str]:
         """Detect jailbreak attempts."""
         jailbreak_patterns = [
+            # DAN-style jailbreaks
             r"do anything now",
             r"from now on.{0,50}act as",
             r"you are going to act as",
@@ -49,6 +109,7 @@ class CustomGuard:
             r"roleplay as",
             r"simulate being",
 
+            # Instruction override attempts
             r"ignore (all )?previous (instructions|rules|prompts)",
             r"disregard (all )?(previous|above|earlier)",
             r"forget (everything|all|your) (you know|instructions|rules)",
@@ -56,11 +117,13 @@ class CustomGuard:
             r"system prompt:",
             r"override (instructions|rules|system)",
 
+            # Developer mode tricks
             r"developer mode",
             r"admin mode",
             r"god mode",
             r"jailbreak mode",
 
+            # Context manipulation
             r"<\|im_start\|>",
             r"<\|im_end\|>",
             r"\[SYSTEM\]",
@@ -80,6 +143,7 @@ class CustomGuard:
 
         text_lower = text.lower()
 
+        # 1. Check for violence and extreme harm keywords
         violence_keywords = [
             "genocide", "ethnic cleansing", "mass killing", "exterminate",
             "bomb", "weapon", "gun", "explosive", "grenade",
@@ -91,6 +155,7 @@ class CustomGuard:
             if keyword in text_lower:
                 return True, f"Violent content detected: '{keyword}'"
 
+        # 2. Check for hate speech patterns (more sophisticated - uses regex)
         hate_speech_patterns = [
             # Dehumanizing language
             r"\b(scum|vermin|animals|insects|rats|parasites|trash|garbage|filth)\b",
@@ -116,6 +181,7 @@ class CustomGuard:
             if match:
                 return True, f"Hate speech pattern detected: '{match.group()}'"
 
+        # 3. Check for illegal activities
         illegal_keywords = [
             "illegal drugs", "drug trafficking", "fraud", "scam",
             "money laundering", "stolen", "hack into", "credit card theft",
@@ -125,6 +191,7 @@ class CustomGuard:
             if keyword in text_lower:
                 return True, f"Illegal activity content detected: '{keyword}'"
 
+        # 4. Check for self-harm
         self_harm_keywords = [
             "suicide", "self-harm", "kill yourself", "end your life",
         ]
@@ -161,6 +228,196 @@ class CustomGuard:
         return ValidationResult(True)
 
 guard = CustomGuard()
+print("✓ Custom Safety Controls initialized")
+print("  - PII Detection: Email, Phone, SSN, Credit Card, API Keys")
+print("  - Jailbreak Detection: DAN, prompt injection, instruction override")
+print("  - Hate Speech Detection: Dehumanizing language, group-targeted violence")
+print("  - Violence Detection: Genocide, mass harm, weapons, extremism")
+print("  - Content Safety: Illegal activities, self-harm prevention")
+
+# -----------------------------
+# Source Credibility Scoring System
+# -----------------------------
+from datetime import datetime
+from urllib.parse import urlparse
+from typing import Optional
+
+class SourceCredibilityScorer:
+    """
+    Evaluates source credibility based on multiple factors:
+    - Domain reputation (academic, government, news, etc.)
+    - Date freshness
+    - Content indicators
+    """
+
+    # Domain reputation tiers
+    HIGHLY_CREDIBLE_DOMAINS = {
+        # Academic & Research
+        '.edu', '.ac.uk', '.edu.au', 'scholar.google', 'arxiv.org', 'pubmed.ncbi',
+        'researchgate.net', 'ieee.org', 'acm.org', 'sciencedirect.com', 'springer.com',
+        'nature.com', 'science.org', 'cell.com', 'pnas.org',
+
+        # Government & Official
+        '.gov', '.mil', 'who.int', 'un.org', 'europa.eu', 'nih.gov',
+
+        # Major News (Tier 1)
+        'apnews.com', 'reuters.com', 'bbc.com', 'bbc.co.uk', 'nytimes.com',
+        'wsj.com', 'washingtonpost.com', 'ft.com', 'economist.com',
+        'theguardian.com', 'npr.org', 'pbs.org',
+    }
+
+    CREDIBLE_DOMAINS = {
+        # Tech & Business News
+        'techcrunch.com', 'arstechnica.com', 'wired.com', 'forbes.com',
+        'bloomberg.com', 'businessinsider.com', 'cnbc.com', 'cnn.com',
+
+        # Specialized Publications
+        'sciencenews.org', 'scientificamerican.com', 'newscientist.com',
+        'medscape.com', 'healthline.com', 'mayoclinic.org',
+
+        # Tech Documentation
+        'github.com', 'stackoverflow.com', 'medium.com', 'dev.to',
+        'docs.python.org', 'developer.mozilla.org', 'w3.org',
+    }
+
+    LOW_CREDIBILITY_INDICATORS = [
+        'clickbait', 'shocking', 'you won\'t believe', 'conspiracy',
+        'fake news', 'hoax', 'unverified', 'rumor', 'allegedly'
+    ]
+
+    def score_source(self, url: str, content: str = "", date_str: Optional[str] = None) -> dict:
+        """
+        Score a source's credibility (0-100 scale).
+
+        Returns:
+            dict with keys: score, tier, factors, confidence_level
+        """
+        scores = []
+        factors = []
+
+        # Parse URL
+        try:
+            parsed_url = urlparse(url)
+            domain = parsed_url.netloc.lower()
+        except:
+            domain = url.lower()
+
+        # 1. Domain Reputation Score (40 points max)
+        domain_score = 0
+        domain_tier = "Unknown"
+
+        if any(d in domain for d in self.HIGHLY_CREDIBLE_DOMAINS):
+            domain_score = 40
+            domain_tier = "Highly Credible"
+            factors.append("Highly credible domain (academic/government/tier-1 news)")
+        elif any(d in domain for d in self.CREDIBLE_DOMAINS):
+            domain_score = 30
+            domain_tier = "Credible"
+            factors.append("Credible domain (established publication)")
+        elif '.org' in domain or '.net' in domain:
+            domain_score = 20
+            domain_tier = "Moderate"
+            factors.append("Organizational/network domain")
+        elif '.com' in domain or '.co' in domain:
+            domain_score = 15
+            domain_tier = "Commercial"
+            factors.append("Commercial domain")
+        else:
+            domain_score = 10
+            domain_tier = "Unknown"
+            factors.append("Unknown domain type")
+
+        scores.append(domain_score)
+
+        # 2. Date Freshness Score (30 points max)
+        freshness_score = 15  # Default moderate score
+        if date_str:
+            try:
+                # Try to parse date
+                article_date = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+                days_old = (datetime.now() - article_date).days
+
+                if days_old < 7:
+                    freshness_score = 30
+                    factors.append("Very recent (< 1 week)")
+                elif days_old < 30:
+                    freshness_score = 25
+                    factors.append("Recent (< 1 month)")
+                elif days_old < 180:
+                    freshness_score = 20
+                    factors.append("Moderately recent (< 6 months)")
+                elif days_old < 365:
+                    freshness_score = 15
+                    factors.append("Within past year")
+                else:
+                    freshness_score = 10
+                    factors.append(f"Older content ({days_old // 365} years)")
+            except:
+                factors.append("Date unavailable")
+        else:
+            factors.append("Date not provided")
+
+        scores.append(freshness_score)
+
+        # 3. Content Quality Indicators (30 points max)
+        content_score = 20  # Default moderate score
+        content_lower = content.lower() if content else ""
+
+        # Check for low credibility indicators
+        low_cred_count = sum(1 for indicator in self.LOW_CREDIBILITY_INDICATORS if indicator in content_lower)
+        if low_cred_count > 0:
+            content_score = max(5, 20 - (low_cred_count * 5))
+            factors.append(f"Warning: Contains {low_cred_count} low-credibility indicator(s)")
+        else:
+            # Check for quality indicators
+            quality_indicators = ['study', 'research', 'according to', 'data shows', 'evidence']
+            quality_count = sum(1 for indicator in quality_indicators if indicator in content_lower)
+
+            if quality_count >= 3:
+                content_score = 30
+                factors.append("High-quality content indicators present")
+            elif quality_count >= 1:
+                content_score = 25
+                factors.append("Some quality content indicators")
+            else:
+                factors.append("Standard content quality")
+
+        scores.append(content_score)
+
+        # Calculate final score
+        total_score = sum(scores)
+
+        # Determine confidence level
+        if total_score >= 80:
+            confidence = "High"
+        elif total_score >= 60:
+            confidence = "Medium-High"
+        elif total_score >= 40:
+            confidence = "Medium"
+        elif total_score >= 20:
+            confidence = "Medium-Low"
+        else:
+            confidence = "Low"
+
+        return {
+            "score": total_score,
+            "tier": domain_tier,
+            "factors": factors,
+            "confidence_level": confidence,
+            "domain": domain,
+            "breakdown": {
+                "domain_reputation": domain_score,
+                "date_freshness": freshness_score,
+                "content_quality": content_score
+            }
+        }
+
+credibility_scorer = SourceCredibilityScorer()
+print("\n✓ Source Credibility Scorer initialized")
+print("  - Domain reputation analysis (academic, government, news)")
+print("  - Date freshness scoring")
+print("  - Content quality indicators")
+print("  - 100-point credibility scale")
 
 # -----------------------------
 # Citation Manager
@@ -177,7 +434,13 @@ class CitationManager:
     def add_citation(self, url: str, title: str = "", author: str = "",
                      date: str = "", credibility_score: int = 0,
                      accessed_date: str = None) -> int:
+        """
+        Add a citation and return its index number.
 
+        Returns:
+            int: Citation number (1-indexed)
+        """
+        # Check if URL already exists
         if url in self.url_index:
             return self.url_index[url]
 
@@ -210,27 +473,81 @@ class CitationManager:
         except:
             return url
 
-    def format_citation(self, citation_number: int, style: str = "simple") -> str:
+    def format_citation(self, citation_number: int, style: str = "apa") -> str:
+        """
+        Format a citation in the specified style.
+
+        Args:
+            citation_number: 1-indexed citation number
+            style: "apa", "mla", "chicago", or "simple"
+        """
         if citation_number < 1 or citation_number > len(self.citations):
             return f"[Invalid citation: {citation_number}]"
 
-        cit = self.citations[citation_number - 1]  
-        # Simple format
-        return f"[{citation_number}] {cit['title']} - {cit['domain']}\n    {cit['url']}"
+        cit = self.citations[citation_number - 1]
+
+        if style.lower() == "apa":
+            # APA format: Author. (Date). Title. Retrieved from URL
+            return f"{cit['author']}. ({cit['date']}). {cit['title']}. Retrieved from {cit['url']}"
+
+        elif style.lower() == "mla":
+            # MLA format: Author. "Title." Website, Date, URL. Accessed Date.
+            return f"{cit['author']}. \"{cit['title']}.\" {cit['domain']}, {cit['date']}, {cit['url']}. Accessed {cit['accessed_date']}."
+
+        elif style.lower() == "chicago":
+            # Chicago format: Author. "Title." Website. Date. URL.
+            return f"{cit['author']}. \"{cit['title']}.\" {cit['domain']}. {cit['date']}. {cit['url']}."
+
+        else:  # simple
+            # Simple format
+            return f"[{citation_number}] {cit['title']} - {cit['domain']}\n    {cit['url']}"
 
     def get_all_citations(self, style: str = "simple") -> list[str]:
+        """Get all citations formatted in the specified style."""
         return [self.format_citation(i+1, style) for i in range(len(self.citations))]
+
+    def get_credibility_summary(self) -> dict:
+        """Get summary statistics about source credibility."""
+        if not self.citations:
+            return {"average_score": 0, "high_quality": 0, "medium_quality": 0, "low_quality": 0}
+
+        scores = [c['credibility_score'] for c in self.citations if c['credibility_score'] > 0]
+
+        if not scores:
+            return {"average_score": 0, "high_quality": 0, "medium_quality": 0, "low_quality": 0}
+
+        avg_score = sum(scores) / len(scores)
+        high_quality = sum(1 for s in scores if s >= 70)
+        medium_quality = sum(1 for s in scores if 40 <= s < 70)
+        low_quality = sum(1 for s in scores if s < 40)
+
+        return {
+            "average_score": round(avg_score, 1),
+            "high_quality": high_quality,
+            "medium_quality": medium_quality,
+            "low_quality": low_quality,
+            "total_sources": len(scores)
+        }
 
     def clear(self):
         """Clear all citations."""
         self.citations = []
         self.url_index = {}
 
+# Global citation manager (will be reset per query)
 citation_manager = CitationManager()
+print("\n✓ Citation Manager initialized")
+print("  - Multiple citation formats: APA, MLA, Chicago, Simple")
+print("  - Automatic deduplication")
+print("  - Credibility score tracking")
+print("  - URL normalization")
 
 # -----------------------------
 # Knowledge Base: Dynamically populated from search results
 # -----------------------------
+# Note: The Pinecone vector database will be populated dynamically
+# as the Research Agent performs searches. Each query's results are
+# stored for future retrieval, building an ever-growing knowledge base.
 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
@@ -240,24 +557,33 @@ text_splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
     chunk_size=1000, chunk_overlap=100
 )
 
+# %%
 # -----------------------------
 # Pinecone vector store (serverless, v6 SDK)
 # -----------------------------
-from pinecone import Pinecone, ServerlessSpec                  
-from langchain_pinecone import PineconeVectorStore               
+from pinecone import Pinecone, ServerlessSpec                     # v6 SDK
+from langchain_pinecone import PineconeVectorStore                # LangChain integration
 from langchain_huggingface import HuggingFaceEmbeddings
-from langchain.retrievers import BM25Retriever, EnsembleRetriever  
+from langchain.retrievers import BM25Retriever, EnsembleRetriever  # Hybrid search
+
+# PINECONE_API_KEY should be set in your shell
 pc = Pinecone(api_key=os.environ["PINECONE_API_KEY"])
 
+# Choose embeddings (you already used HF; default model is all-mpnet-base-v2 with dim=768)
 
+# 1024-dim model (matches your existing Pinecone index)
 embeddings = HuggingFaceEmbeddings(
     model_name="intfloat/e5-large-v2",
+    # optional but often helpful for cosine search:
     encode_kwargs={"normalize_embeddings": True}
 )
+
+# Compute embedding dimension robustly (works for any model you choose)
 EMBED_DIM = len(embeddings.embed_query("dimension probe"))
+
 index_name = os.environ["PINECONE_INDEX_NAME"]
 
-
+# Create index if missing
 existing = {idx.name for idx in pc.list_indexes().indexes}  # -> names of existing indexes
 if index_name not in existing:
     pc.create_index(
@@ -269,10 +595,10 @@ if index_name not in existing:
 
 index = pc.Index(index_name)
 
-# Build vector store
+# Build vector store (will be populated dynamically from search results)
 vectorstore = PineconeVectorStore(index=index, embedding=embeddings)
 
-# Create semantic retriever (MMR)
+# Create semantic retriever (MMR supported by LangChain retriever API)
 semantic_retriever = vectorstore.as_retriever(
     search_type="mmr",
     search_kwargs={"k": 3, "fetch_k": 20, "lambda_mult": 0.5},
@@ -287,13 +613,21 @@ bm25_retriever = BM25Retriever.from_documents(
 )
 
 # Create hybrid retriever combining BM25 (keyword) + semantic search
-# Weights can be adjusted based on your use case
+# Weights can be adjusted based on your use case:
+#   - Higher BM25 weight (e.g., [0.7, 0.3]): Better for specific terms, names, IDs
+#   - Higher semantic weight (e.g., [0.3, 0.7]): Better for conceptual queries
+#   - Equal weights (e.g., [0.5, 0.5]): Balanced approach (default)
 retriever = EnsembleRetriever(
     retrievers=[bm25_retriever, semantic_retriever],
     weights=[0.5, 0.5],  # Equal weight to keyword and semantic search
 )
 
+print(f"Hybrid search initialized:")
+print(f"  - Pinecone vector store (index: {index_name})")
+print(f"  - BM25 keyword search")
+print(f"  - Ensemble weights: 50% BM25, 50% semantic")
 
+# %%
 # -----------------------------
 # Retriever tool (Hybrid Search: BM25 + Semantic)
 # -----------------------------
@@ -307,6 +641,7 @@ retriever_tool = create_retriever_tool(
     response_format="content",
 )
 
+# %%
 # -----------------------------
 # Tavily Search Tool (Web Search for Research Agent)
 # -----------------------------
@@ -333,9 +668,9 @@ except Exception as e:
     TAVILY_ENABLED = False
     tavily_tool = None
 
-
+# %%
 # -----------------------------
-# LLMs
+# LLMs (keeping existing Gemini integration)
 # -----------------------------
 from langgraph.graph import MessagesState
 from langchain.chat_models import init_chat_model
@@ -346,7 +681,7 @@ from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 research_model = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.0)
 summary_model = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.0)
 
-
+# %%
 # -----------------------------
 # AGENT 1: Research Agent
 # -----------------------------
@@ -371,17 +706,30 @@ def apply_guardrails(text: str, context: str = "input") -> str:
         else:
             error_msg = f"Guardrails {context} validation failed: {result.error}"
             print(f"\n⛔ {error_msg}")
+            # STOP EXECUTION - raise exception instead of continuing
             raise GuardrailsViolationError(error_msg)
     except GuardrailsViolationError:
+        # Re-raise our custom exception
         raise
     except Exception as e:
         error_msg = f"Guardrails {context} error: {e}"
         print(f"\n⛔ {error_msg}")
+        # Treat guardrails errors as validation failures for safety
         raise GuardrailsViolationError(error_msg)
 
 def research_agent(state: MessagesState):
     """
     Research Agent: Intelligent multi-source information gathering.
+
+    Strategy:
+    1. First check knowledge base (Pinecone) for existing information
+    2. Evaluate if DB results are sufficient to answer the query
+    3. If not sufficient, perform web search via Tavily
+    4. Score source credibility and add citations
+    5. Store new web search results with credibility metadata for future queries
+
+    Demonstrates: Tool calling, intelligent tool selection, web integration,
+                  guardrails, dynamic knowledge base, source credibility scoring
     """
     messages = state["messages"]
     user_query = messages[0].content if messages else ""
@@ -441,14 +789,18 @@ Please rephrase your query without sensitive information.
         print("[Research Agent] Step 2: Evaluating knowledge base sufficiency...")
 
         # STEP 2A: Quick keyword relevance check (fast filter)
+        # Extract meaningful words (4+ chars) from the query
         query_terms = set(re.findall(r'\b\w{4,}\b', safe_query.lower()))
         kb_lower = kb_results.lower()
+
+        # Count how many query terms appear in KB results
         matching_terms = [term for term in query_terms if term in kb_lower]
         match_ratio = len(matching_terms) / max(len(query_terms), 1)
 
         print(f"[Research Agent]   Keyword check: {len(matching_terms)}/{len(query_terms)} terms matched ({match_ratio:.1%})")
 
-        if match_ratio < 0.75:
+        # If very low keyword overlap, skip straight to web search
+        if match_ratio < 0.75:  # Less than 25% of key terms found
             print("[Research Agent] ○ Low keyword overlap - KB not relevant, will perform web search")
             need_web_search = True
         else:
@@ -483,7 +835,7 @@ Answer with ONE WORD only (SUFFICIENT or INSUFFICIENT):"""
     else:
         print("[Research Agent] Step 2: Knowledge base empty - will perform web search")
 
-    # STEP 3: Perform web search if needed (with citations)
+    # STEP 3: Perform web search if needed (with credibility scoring and citations)
     web_results = ""
     documents_to_store = []
     credibility_scores = []
@@ -678,7 +1030,7 @@ The query has been rejected. Please try a different query.
         ]
     }
 
-
+# %%
 # -----------------------------
 # AGENT 2: Summary Agent
 # -----------------------------
@@ -840,7 +1192,7 @@ The query has been rejected. Please try a different query.
         ]
     }
 
-
+# %%
 # -----------------------------
 # LangGraph Multi-Agent Workflow
 # -----------------------------
@@ -874,7 +1226,7 @@ print("- Retrieval: Hybrid search with 50% BM25 (keyword) + 50% semantic")
 print("- Source Credibility: 100-point scoring system (domain + freshness + quality)")
 print("- Citations: APA, MLA, Chicago, Simple formats with automatic deduplication")
 
-
+# %%
 # -----------------------------
 # Main Execution: Multi-Agent Research Assistant Demo
 # -----------------------------
@@ -927,7 +1279,7 @@ def run_research_query(query: str, thread_id: str = "demo-1", verbose: bool = Tr
     print(f"{'='*80}\n")
 
 
-
+# %%
 # -----------------------------
 # Demo Queries
 # -----------------------------
@@ -937,7 +1289,7 @@ if __name__ == "__main__":
         """How many times as John Cena won the WWE Championship?""",
         thread_id="demo-1"
     )
-
+# %%
 """
 ================================================================================
 SETUP AND USAGE GUIDE
