@@ -35,34 +35,11 @@ Built with:
 - Jailbreak Detection (prompt injection, instruction override)
 - Content Safety (violence, hate speech, illegal activities)
 - Multi-layer validation (input, research output, final summary)
-
+  
 ---
 
-## Project Structure
-
-```
-research-summary-agents/
-├── research-summary-agents.py    # Core agent implementation
-├── backend/
-│   ├── app.py                    # Flask REST API
-│   └── requirements.txt          # Backend dependencies
-├── frontend/
-│   ├── public/
-│   │   └── index.html
-│   ├── src/
-│   │   ├── App.js               # Main React component
-│   │   ├── App.css
-│   │   ├── index.js
-│   │   ├── index.css
-│   │   └── components/
-│   │       ├── QueryForm.js     # Search input form
-│   │       ├── ResultsDisplay.js # Results with tabs
-│   │       ├── SystemStatus.js   # Status indicator
-│   │       ├── CitationsList.js  # Citations display
-│   │       └── *.css            # Component styles
-│   └── package.json
-└── README.md
-```
+# Execution Run Video:
+https://drive.google.com/file/d/1RWOr5Z9GGzmDB79_L0kkgc58rITqqjoI/view?usp=sharing
 
 ---
 
@@ -167,7 +144,7 @@ The interface has 3 tabs:
 
 ---
 ## Future direction
-- **Inlcude MCP** connectors for ArXiv, Google Drive, Notion for more selective research
+- **Include MCP** connectors for ArXiv, Google Drive, Notion for more selective research
 - **Scale up with cloud** providers like AWS or Azure
 - **Integrate Kubernetes**
 
@@ -190,4 +167,4 @@ The interface has 3 tabs:
 
 ---
 
-**Built with ❤️ using LangGraph, Gemini, Pinecone, and Tavily**
+**Built with ❤️**
