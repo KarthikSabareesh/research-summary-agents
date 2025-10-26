@@ -61,14 +61,14 @@ class CustomGuard:
         violence_keywords = [
             "genocide", "ethnic cleansing", "mass killing", "exterminate",
             "bomb", "weapon", "gun", "explosive", "grenade",
-            "kill", "murder", "assassinate", "torture", "massacre",
-            "slaughter", "execute", "lynch", "eradicate",
+            "murder", "assassinate", "torture", "massacre",
+            "slaughter", "lynch", "eradicate",
         ]
         for keyword in violence_keywords:
             if keyword in text_lower:
                 return True, f"Violent content detected: '{keyword}'"
         hate_speech_patterns = [
-            r"\b(scum|vermin|animals|insects|rats|parasites|trash|garbage|filth)\b",
+            r"\b(scum|vermin|parasites|trash|garbage|filth)\b",
             r"(don't|do not|doesn't) deserve to (live|breathe|exist)",
             r"should (die|be killed|be eliminated|be exterminated|not exist)",
             r"(kill|eliminate|exterminate|eradicate) all (the )?\w+ (people|race|group)",
@@ -77,7 +77,7 @@ class CustomGuard:
             r"\b(nazi|nazism|fascis[mt]|kkk|aryan nation)\w*\b",
             r"\b(white supremac|racial purity|master race)\w*\b",
             r"\b(hate|despise) (all |the )?\w+ (people|race|religion|group)",
-            r"\w+ (people|race|group) (are|is) (inferior|subhuman|animals|scum)",
+            r"\w+ (people|race|group) (are|is) (inferior|subhuman|scum)",
         ]
         for pattern in hate_speech_patterns:
             match = re.search(pattern, text_lower)
@@ -704,9 +704,3 @@ def run_research_query(query: str, thread_id: str = "demo-1", verbose: bool = Tr
     print(f"\n{'='*80}")
     print("Research complete!")
     print(f"{'='*80}\n")
-
-if __name__ == "__main__":
-    run_research_query(
-        """How many times as John Cena won the WWE Championship?""",
-        thread_id="demo-1"
-    )
