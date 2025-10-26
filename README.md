@@ -58,7 +58,6 @@ research-summary-agents/
 │   │       ├── QueryForm.js     # Search input form
 │   │       ├── ResultsDisplay.js # Results with tabs
 │   │       ├── SystemStatus.js   # Status indicator
-│   │       ├── CredibilityAnalysis.js # Quality charts
 │   │       ├── CitationsList.js  # Citations display
 │   │       └── *.css            # Component styles
 │   └── package.json
@@ -110,7 +109,6 @@ pip install flask flask-cors gunicorn python-dotenv
 The index will be created automatically when you first run the application. The system uses:
 - **Model**: `intfloat/e5-large-v2` (1024 dimensions)
 - **Metric**: Cosine similarity
-- **Cloud**: AWS, us-east-1
 
 ### Step 4: Install Frontend Dependencies
 
@@ -123,8 +121,6 @@ cd ..
 ---
 
 ## Running the Application
-
-### Option 1: Development Mode (Recommended)
 
 **Terminal 1 - Backend:**
 ```bash
@@ -144,121 +140,6 @@ npm start
 ```
 
 Frontend will open automatically at: `http://localhost:3000`
-
-### Option 2: Production Mode
-
-**Backend (with Gunicorn):**
-```bash
-cd backend
-export $(cat ../.env | xargs)
-gunicorn -w 4 -b 0.0.0.0:5000 app:app
-```
-
-**Frontend (build and serve):**
-```bash
-cd frontend
-npm run build
-
-# Serve with any static server, e.g.:
-npx serve -s build -p 3000
-```
-
----
-
-## API Documentation
-
-### Base URL
-```
-http://localhost:5000/api
-```
-
-### Endpoints
-
-#### 1. Get System Status
-```http
-GET /api/status
-```
-
-**Response:**
-```json
-{
-  "status": "online",
-  "initialized": true,
-  "timestamp": "2025-01-15T10:30:00",
-  "features": {
-    "hybrid_search": true,
-    "credibility_scoring": true,
-    "citation_management": true,
-    "guardrails": true
-  }
-}
-```
-
-#### 2. Submit Research Query
-```http
-POST /api/query
-Content-Type: application/json
-
-{
-  "query": "What are the latest developments in quantum computing?",
-  "citation_format": "simple",
-  "thread_id": "optional-session-id"
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "query": "What are the latest developments in quantum computing?",
-  "summary": "Formatted executive summary with key findings...",
-  "metadata": {
-    "credibility_summary": {
-      "average_score": 72.4,
-      "high_quality_sources": 3,
-      "medium_quality_sources": 2,
-      "low_quality_sources": 0,
-      "total_sources": 5
-    },
-    "citations_count": 5,
-    "used_kb": false,
-    "used_web_search": true
-  },
-  "citations": [
-    "[1] Article Title - nytimes.com [Credibility: 85/100]\\n    https://...",
-    "..."
-  ],
-  "timestamp": "2025-01-15T10:35:00"
-}
-```
-
-#### 3. Get Citations
-```http
-POST /api/citations
-Content-Type: application/json
-
-{
-  "format": "apa"
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "citations": ["Author. (2025). Title. Retrieved from https://..."],
-  "format": "apa",
-  "count": 5,
-  "credibility_stats": { ... }
-}
-```
-
-#### 4. Health Check
-```http
-GET /api/health
-```
-
----
 
 ## Usage
 
@@ -285,45 +166,6 @@ The interface has 4 tabs:
 - "Who is the president of India?"
 - "What are the benefits and risks of AI in healthcare?"
 - "Explain the current state of electric vehicle adoption"
-
----
-
-## Customization
-
-### Change Citation Format
-Edit `frontend/src/components/QueryForm.js`:
-```javascript
-const [citationFormat, setCitationFormat] = useState('apa');  // or 'mla', 'chicago', 'simple'
-```
-
-### Adjust Hybrid Search Weights
-Edit `research-summary-agents.py` line ~297:
-```python
-retriever = EnsembleRetriever(
-    retrievers=[bm25_retriever, semantic_retriever],
-    weights=[0.7, 0.3],  # Favor BM25 for specific terms
-)
-```
-
-### Add More Credible Domains
-Edit `research-summary-agents.py` lines ~238-265:
-```python
-HIGHLY_CREDIBLE_DOMAINS = {
-    '.edu', '.gov', 'your-domain.com',  # Add here
-    ...
-}
-```
-
-### Change API Port
-**Backend** (`backend/app.py`):
-```python
-app.run(debug=True, host='0.0.0.0', port=8000)  # Change port
-```
-
-**Frontend** (`frontend/src/App.js`):
-```javascript
-const API_BASE_URL = 'http://localhost:8000';  // Update URL
-```
 
 ---
 
@@ -369,21 +211,10 @@ const API_BASE_URL = 'http://localhost:8000';  // Update URL
 
 ## Performance Tips
 
-1. **First Run**: Takes longer due to model downloads (HuggingFace embeddings ~500MB)
+1. **First Run**: Takes longer due to model downloads
 2. **Caching**: Models are cached after first use
 3. **Concurrent Queries**: Use different `thread_id` values
 4. **Knowledge Base**: Grows over time, improving future query speed
-5. **Production**: Use Gunicorn with multiple workers for better concurrency
-
----
-
-## Security Notes
-
-- Never commit `.env` file to version control
-- API keys are server-side only (not exposed to frontend)
-- CORS is configured for local development only
-- For production, configure proper CORS origins
-- Guardrails block sensitive content automatically
 
 ---
 
@@ -401,22 +232,6 @@ const API_BASE_URL = 'http://localhost:8000';  // Update URL
 | Keyword Search | BM25Retriever |
 | Safety | Custom Guardrails |
 | Citations | Custom Manager |
-
----
-
-## License
-
-This project is provided as-is for educational and research purposes.
-
----
-
-## Support
-
-For questions or issues:
-1. Check the Troubleshooting section
-2. Review API documentation
-3. Check console logs (browser DevTools + backend terminal)
-4. Verify all API keys are valid
 
 ---
 
