@@ -120,7 +120,7 @@ cd ..
 
 ---
 
-## Running the Application
+## Running the Application (locally)
 
 **Terminal 1 - Backend:**
 ```bash
@@ -147,17 +147,15 @@ Frontend will open automatically at: `http://localhost:3000`
 Follow the "Running the Application" section above.
 
 ### 2. Access the Web Interface
-Open `http://localhost:3000` in your browser.
+Open `http://localhost:3000` in your browser if ran locally or use Vercel deployment link.
 
 ### 3. Submit a Query
 - Enter your research question in the text area
-- Select citation format (APA, MLA, Chicago, or Simple)
 - Click "Research" button
 
 ### 4. View Results
-The interface has 4 tabs:
+The interface has 3 tabs:
 - **📄 Summary**: Key findings and executive summary
-- **🎯 Credibility Analysis**: Source quality charts and statistics
 - **📚 Citations**: Formatted citations with credibility scores
 - **🔍 Full Report**: Complete raw output
 
@@ -168,53 +166,10 @@ The interface has 4 tabs:
 - "Explain the current state of electric vehicle adoption"
 
 ---
-
-## Troubleshooting
-
-### Backend Issues
-
-**"System not initialized" error:**
-- Check if all API keys are set in `.env`
-- Verify Pinecone index exists or can be created
-- Check console for initialization errors
-
-**Slow queries:**
-- Normal for first query (model loading)
-- Subsequent queries use cached models
-- Complex queries may take 30-60 seconds
-
-### Frontend Issues
-
-**"No response from server":**
-- Ensure backend is running on port 5000
-- Check CORS is enabled in Flask
-- Verify firewall allows localhost:5000
-
-**Build errors:**
-- Delete `node_modules` and `package-lock.json`
-- Run `npm install` again
-- Ensure Node.js version is 16+
-
-### API Key Issues
-
-**Pinecone errors:**
-- Verify API key is valid
-- Check index name matches `.env`
-- Ensure free tier hasn't exceeded limits
-
-**Tavily errors:**
-- System falls back to knowledge-base only mode
-- Citations won't be generated
-- Check API key and quota
-
----
-
-## Performance Tips
-
-1. **First Run**: Takes longer due to model downloads
-2. **Caching**: Models are cached after first use
-3. **Concurrent Queries**: Use different `thread_id` values
-4. **Knowledge Base**: Grows over time, improving future query speed
+## Future direction
+- Inlcude MCP connectors for ArXiv, Google Drive, Notion for more selective research
+- Scale up with cloud providers like AWS or Azure
+- Integrate Kubernetes
 
 ---
 
