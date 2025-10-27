@@ -1,18 +1,8 @@
-"""
-Flask API for Research Summary Agents
-======================================
-RESTful API wrapping the multi-agent research assistant with:
-- POST /api/query: Submit research queries
-- GET /api/status: Check system status
-- POST /api/citations: Get citations in different formats
-"""
-
-# Load environment variables FIRST before importing anything else
 from dotenv import load_dotenv
 import os
 load_dotenv()  # Load .env file from project root
 
-# Verify LangSmith environment variables are loaded
+
 print("\n" + "="*80)
 print("ENVIRONMENT VARIABLES CHECK")
 print("="*80)
@@ -28,13 +18,11 @@ import json
 from datetime import datetime
 import traceback
 
-# Add parent directory to path to import the research agent
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-# Import the research agent components
-# We'll import these after Flask initialization to handle any initialization issues
 app = Flask(__name__)
-CORS(app)  # Enable CORS for React frontend
+CORS(app)
 
 # Global variables for the agent system
 graph = None
@@ -48,7 +36,6 @@ def initialize_agent_system():
 
     try:
         # Import the entire research agent module
-        # This will run all initialization code
         import importlib.util
         spec = importlib.util.spec_from_file_location(
             "research_agent",
@@ -95,25 +82,6 @@ def get_status():
 def query():
     """
     Submit a research query and get executive summary.
-
-    Request body:
-    {
-        "query": "Your research question",
-        "thread_id": "optional-session-id"
-    }
-
-    Response:
-    {
-        "success": true,
-        "query": "original query",
-        "summary": "formatted executive summary",
-        "metadata": {
-            "citations_count": 5,
-            "sources_used": {...}
-        },
-        "citations": [...],
-        "timestamp": "ISO timestamp"
-    }
     """
     if not initialized:
         return jsonify({
@@ -174,7 +142,7 @@ def query():
                             'used_web_search': msg.additional_kwargs.get('used_web_search', False)
                         })
 
-        # Get citations (simple format only)
+        # Get citations
         citations = []
         citations_count = metadata.get('citations_count', 0)
         print(f"\n[API] ===== CITATIONS DEBUG =====")
